@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>Test Report</title>
+    <link href="assets/style.css" rel="stylesheet" type="text/css"/></head>
+  <body onLoad="init()">
+    <script>/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this file,
+ * You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+
+function toArray(iter) {
+    if (iter === null) {
+        return null;
+    }
+    return Array.prototype.slice.call(iter);
+}
+
+function find(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return elem.querySelector(selector);
+}
+
+function find_all(selector, elem) {
+    if (!elem) {
+        elem = document;
+    }
+    return toArray(elem.querySelectorAll(selector));
+}
+
+function sort_column(elem) {
+    toggle_sort_states(elem);
+    var colIndex = toArray(elem.parentNode.childNodes).indexOf(elem);
+    var key;
+    if (elem.classList.contains('numeric')) {
+        key = key_num;
+    } else if (elem.classList.contains('result')) {
+        key = key_result;
+    } else {
+        key = key_alpha;
+    }
+    sort_table(elem, key(colIndex));
+}
+
+function show_all_extras() {
+    find_all('.col-result').forEach(show_extras);
+}
+
+function hide_all_extras() {
+    find_all('.col-result').forEach(hide_extras);
+}
+
+function show_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.remove("collapsed");
+    expandcollapse.classList.remove("expander");
+    expandcollapse.classList.add("collapser");
+}
+
+function hide_extras(colresult_elem) {
+    var extras = colresult_elem.parentNode.nextElementSibling;
+    var expandcollapse = colresult_elem.firstElementChild;
+    extras.classList.add("collapsed");
+    expandcollapse.classList.remove("collapser");
+    expandcollapse.classList.add("expander");
+}
+
+function show_filters() {
+    var filter_items = document.getElementsByClassName('filter');
+    for (var i = 0; i < filter_items.length; i++)
+        filter_items[i].hidden = false;
+}
+
+function add_collapse() {
+    // Add links for show/hide all
+    var resulttable = find('table#results-table');
+    var showhideall = document.createElement("p");
+    showhideall.innerHTML = '<a href="javascript:show_all_extras()">Show all details</a> / ' +
+                            '<a href="javascript:hide_all_extras()">Hide all details</a>';
+    resulttable.parentElement.insertBefore(showhideall, resulttable);
+
+    // Add show/hide link to each result
+    find_all('.col-result').forEach(function(elem) {
+        var collapsed = get_query_parameter('collapsed') || 'Passed';
+        var extras = elem.parentNode.nextElementSibling;
+        var expandcollapse = document.createElement("span");
+        if (extras.classList.contains("collapsed")) {
+            expandcollapse.classList.add("expander")
+        } else if (collapsed.includes(elem.innerHTML)) {
+            extras.classList.add("collapsed");
+            expandcollapse.classList.add("expander");
+        } else {
+            expandcollapse.classList.add("collapser");
+        }
+        elem.appendChild(expandcollapse);
+
+        elem.addEventListener("click", function(event) {
+            if (event.currentTarget.parentNode.nextElementSibling.classList.contains("collapsed")) {
+                show_extras(event.currentTarget);
+            } else {
+                hide_extras(event.currentTarget);
+            }
+        });
+    })
+}
+
+function get_query_parameter(name) {
+    var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+function init () {
+    reset_sort_headers();
+
+    add_collapse();
+
+    show_filters();
+
+    sort_column(find('.initial-sort'));
+
+    find_all('.sortable').forEach(function(elem) {
+        elem.addEventListener("click",
+                              function(event) {
+                                  sort_column(elem);
+                              }, false)
+    });
+
+};
+
+function sort_table(clicked, key_func) {
+    var rows = find_all('.results-table-row');
+    var reversed = !clicked.classList.contains('asc');
+    var sorted_rows = sort(rows, key_func, reversed);
+    /* Whole table is removed here because browsers acts much slower
+     * when appending existing elements.
+     */
+    var thead = document.getElementById("results-table-head");
+    document.getElementById('results-table').remove();
+    var parent = document.createElement("table");
+    parent.id = "results-table";
+    parent.appendChild(thead);
+    sorted_rows.forEach(function(elem) {
+        parent.appendChild(elem);
+    });
+    document.getElementsByTagName("BODY")[0].appendChild(parent);
+}
+
+function sort(items, key_func, reversed) {
+    var sort_array = items.map(function(item, i) {
+        return [key_func(item), i];
+    });
+
+    sort_array.sort(function(a, b) {
+        var key_a = a[0];
+        var key_b = b[0];
+
+        if (key_a == key_b) return 0;
+
+        if (reversed) {
+            return (key_a < key_b ? 1 : -1);
+        } else {
+            return (key_a > key_b ? 1 : -1);
+        }
+    });
+
+    return sort_array.map(function(item) {
+        var index = item[1];
+        return items[index];
+    });
+}
+
+function key_alpha(col_index) {
+    return function(elem) {
+        return elem.childNodes[1].childNodes[col_index].firstChild.data.toLowerCase();
+    };
+}
+
+function key_num(col_index) {
+    return function(elem) {
+        return parseFloat(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function key_result(col_index) {
+    return function(elem) {
+        var strings = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed',
+                       'Skipped', 'Passed'];
+        return strings.indexOf(elem.childNodes[1].childNodes[col_index].firstChild.data);
+    };
+}
+
+function reset_sort_headers() {
+    find_all('.sort-icon').forEach(function(elem) {
+        elem.parentNode.removeChild(elem);
+    });
+    find_all('.sortable').forEach(function(elem) {
+        var icon = document.createElement("div");
+        icon.className = "sort-icon";
+        icon.textContent = "vvv";
+        elem.insertBefore(icon, elem.firstChild);
+        elem.classList.remove("desc", "active");
+        elem.classList.add("asc", "inactive");
+    });
+}
+
+function toggle_sort_states(elem) {
+    //if active, toggle between asc and desc
+    if (elem.classList.contains('active')) {
+        elem.classList.toggle('asc');
+        elem.classList.toggle('desc');
+    }
+
+    //if inactive, reset all other functions and add ascending active
+    if (elem.classList.contains('inactive')) {
+        reset_sort_headers();
+        elem.classList.remove('inactive');
+        elem.classList.add('active');
+    }
+}
+
+function is_all_rows_hidden(value) {
+  return value.hidden == false;
+}
+
+function filter_table(elem) {
+    var outcome_att = "data-test-result";
+    var outcome = elem.getAttribute(outcome_att);
+    class_outcome = outcome + " results-table-row";
+    var outcome_rows = document.getElementsByClassName(class_outcome);
+
+    for(var i = 0; i < outcome_rows.length; i++){
+        outcome_rows[i].hidden = !elem.checked;
+    }
+
+    var rows = find_all('.results-table-row').filter(is_all_rows_hidden);
+    var all_rows_hidden = rows.length == 0 ? true : false;
+    var not_found_message = document.getElementById("not-found-message");
+    not_found_message.hidden = !all_rows_hidden;
+}
+</script>
+    <h1>report.html</h1>
+    <p>Report generated on 26-Mar-2020 at 04:28:59 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a> v2.1.1</p>
+    <h2>Environment</h2>
+    <table id="environment">
+      <tr>
+        <td>Packages</td>
+        <td>{"pluggy": "0.13.1", "py": "1.8.1", "pytest": "5.4.1"}</td></tr>
+      <tr>
+        <td>Platform</td>
+        <td>Windows-10-10.0.18362-SP0</td></tr>
+      <tr>
+        <td>Plugins</td>
+        <td>{"arraydiff": "0.3", "astropy-header": "0.1.2", "doctestplus": "0.5.0", "html": "2.1.1", "hypothesis": "5.5.4", "metadata": "1.8.0", "openfiles": "0.4.0", "remotedata": "0.3.2"}</td></tr>
+      <tr>
+        <td>Python</td>
+        <td>3.7.6</td></tr></table>
+    <h2>Summary</h2>
+    <p>3 tests ran in 30.84 seconds. </p>
+    <p class="filter" hidden="true">(Un)check the boxes to filter the results.</p><input checked="true" class="filter" data-test-result="passed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="passed">2 passed</span>, <input checked="true" class="filter" data-test-result="skipped" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="skipped">0 skipped</span>, <input checked="true" class="filter" data-test-result="failed" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="failed">1 failed</span>, <input checked="true" class="filter" data-test-result="error" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="error">0 errors</span>, <input checked="true" class="filter" data-test-result="xfailed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xfailed">0 expected failures</span>, <input checked="true" class="filter" data-test-result="xpassed" disabled="true" hidden="true" name="filter_checkbox" onChange="filter_table(this)" type="checkbox"/><span class="xpassed">0 unexpected passes</span>
+    <h2>Results</h2>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable result initial-sort" col="result">Result</th>
+          <th class="sortable" col="name">Test</th>
+          <th class="sortable numeric" col="duration">Duration</th>
+          <th>Links</th></tr>
+        <tr hidden="true" id="not-found-message">
+          <th colspan="4">No results found. Try to check the filters</th></tr></thead>
+      <tbody class="failed results-table-row">
+        <tr>
+          <td class="col-result">Failed</td>
+          <td class="col-name">test_end2end.py::TestOne::test_end2end</td>
+          <td class="col-duration">11.57</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div><div><img src="test_end2end.py_TestOne_test_end2end.png" alt="screenshot" style= "width:304px;height:228px"  onclick="window.open(this.src)" align="right" /></div></div>
+            <div class="log">self = &lt;tests.test_end2end.TestOne object at 0x0000014F446104C8&gt;<br/><br/>    def test_end2end(self):<br/>        logs = self.getLogger()<br/>        homepage = HomePage(self.driver)<br/>        # self.driver.find_element_by_link_text(&quot;Shop&quot;).click()<br/>        checkflag = homepage.shopItem()<br/>        # products = self.driver.find_elements_by_xpath(&quot;//div[@class= &#x27;card h-100&#x27;]&quot;)<br/>        # checkflag = CheckoutPage(self.driver)<br/>        products = checkflag.getCardTitles()<br/>        logs.info(&quot;getting all the cart items&quot;)<br/>        # //div[@class= &#x27;card h-100&#x27;]/div/h4/a<br/>        self.driver.execute_script(&quot;window.scrollTo(0,document.body.scrollHeight);&quot;)<br/>        for product in products:<br/>            productname = product.find_element_by_xpath(&quot;div/h4/a&quot;).text<br/>            logs.info(productname)<br/>            if productname == &quot;Blackberry&quot;:<br/>                # traverse again for the search of cart button<br/>                # there is no need to give index if the path is unique<br/>                time.sleep(2)<br/>                self.driver.execute_script(&quot;window.scrollTo(0,document.body.scrollHeight);&quot;)<br/>                # checkflag.getCardFooter().click()<br/>                # you cannot handle sending xpath of child but you can handle here by fetching the all buttons<br/>                # then put index on them and click the index you want to click<br/>                # you have to send complete path every time.<br/>                product.find_element_by_xpath(&quot;div/button&quot;).click()<br/>    <br/>        # self.driver.find_element_by_css_selector(&quot;a[class*=&#x27;btn-primary&#x27;]&quot;).click()<br/>        self.driver.execute_script(&quot;window.scrollTo(0,0);&quot;)<br/>        checkflag.getToCart().click()<br/>        # self.driver.find_element_by_css_selector(&quot;a[class*=&#x27;btn-primary&#x27;]&quot;).click()<br/>        time.sleep(2)<br/>    <br/>        # self.driver.find_element_by_xpath(&quot;//button[@class=&#x27;btn btn-success&#x27;]&quot;).click()<br/>        final_page = checkflag.pressSuccess()<br/>    <br/>        # self.driver.find_element_by_id(&quot;country&quot;).send_keys(&quot;Pakistan&quot;)<br/>        # final_page = Confirmpage(self.driver)<br/>        final_page.getDelieveryTextBox().send_keys(&quot;Pakistan&quot;)<br/>        logs.info(&quot;Entering Country name as pak&quot;)<br/>    <br/>        self.verifyLinkPresence(&quot;Pakistan&quot;)<br/>        # self.driver.find_element_by_link_text(&quot;Pakistan&quot;).click()<br/>        final_page.pressDropDown().click()<br/>    <br/>        # self.driver.find_element_by_xpath(&quot;//input[@class=&#x27;btn btn-success btn-lg&#x27;]&quot;).click()<br/>        final_page.pressSuccess().click()<br/>    <br/>        # final = (self.driver.find_element_by_class_name(&quot;alert-success&quot;).text)<br/>        final = (final_page.successAlert().text)<br/>        logs.info(&quot;Text recieved  from application is &quot;+ final)<br/>&gt;       assert &quot;Success!asdasdas    &quot; in final<br/><span class="error">E       AssertionError: assert &#x27;Success!asdasdas    &#x27; in &#x27;×\nSuccess! Thank you! Your order will be delivered in next few weeks :-).&#x27;</span><br/><br/>test_end2end.py:68: AssertionError<br/> -------------------------------Captured log call-------------------------------- <br/>[32mINFO    [0m test_end2end:test_end2end.py:27 getting all the cart items
+[32mINFO    [0m test_end2end:test_end2end.py:32 iphone X
+[32mINFO    [0m test_end2end:test_end2end.py:32 Samsung Note 8
+[32mINFO    [0m test_end2end:test_end2end.py:32 Nokia Edge
+[32mINFO    [0m test_end2end:test_end2end.py:32 Blackberry
+[32mINFO    [0m test_end2end:test_end2end.py:56 Entering Country name as pak
+[32mINFO    [0m test_end2end:test_end2end.py:67 Text recieved  from application is ×
+Success! Thank you! Your order will be delivered in next few weeks :-).<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_HomePage.py::TestHomePage::test_formSubmission[getData0]</td>
+          <td class="col-duration">1.69</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>×
+Success! The Form has been submitted successfully!.
+<br/> -------------------------------Captured log call-------------------------------- <br/>[32mINFO    [0m test_formSubmission:test_HomePage.py:16 first name is Rahul<br/></div></td></tr></tbody>
+      <tbody class="passed results-table-row">
+        <tr>
+          <td class="col-result">Passed</td>
+          <td class="col-name">test_HomePage.py::TestHomePage::test_formSubmission[getData1]</td>
+          <td class="col-duration">1.93</td>
+          <td class="col-links"></td></tr>
+        <tr>
+          <td class="extra" colspan="4">
+            <div class="log"> ------------------------------Captured stdout call------------------------------ <br/>×
+Success! The Form has been submitted successfully!.
+<br/> -------------------------------Captured log call-------------------------------- <br/>[32mINFO    [0m test_formSubmission:test_HomePage.py:16 first name is Aniska<br/></div></td></tr></tbody></table></body></html>

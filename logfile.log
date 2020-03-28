@@ -1,0 +1,11 @@
+2020-03-26 11:01:08,099 :INFO : test_formSubmission :first name is Rahul 
+2020-03-26 11:01:09,733 :INFO : test_formSubmission :first name is Aniska 
+2020-03-26 11:01:09,733 :INFO : test_formSubmission :first name is Aniska 
+2020-03-26 11:01:20,801 :INFO : test_end2end :getting all the cart items 
+2020-03-26 11:01:20,825 :INFO : test_end2end :iphone X 
+2020-03-26 11:01:20,837 :INFO : test_end2end :Samsung Note 8 
+2020-03-26 11:01:20,849 :INFO : test_end2end :Nokia Edge 
+2020-03-26 11:01:20,861 :INFO : test_end2end :Blackberry 
+2020-03-26 11:01:25,620 :INFO : test_end2end :Entering Country name as pak 
+2020-03-26 11:01:31,285 :INFO : test_end2end :Text recieved  from application is ×
+Success! Thank you! Your order will be delivered in next few weeks :-). 
